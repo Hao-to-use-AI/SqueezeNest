@@ -1,0 +1,121 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "squeezenest"
+version = "0.1.0"
+description = "General-purpose 2D irregular nesting and dimensional sensitivity (squeeze-to-fit) engine."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.11"
+keywords = ["nesting", "2d-packing", "CNC", "DXF", "sensitivity-analysis", "Clipper2"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Manufacturing",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Typing :: Typed",
+]
+
+dependencies = [
+    # Geometric kernel -- 64-bit int Clipper2 bindings
+    "clipper2>=1.3",
+
+    # DXF read/write
+    "ezdxf>=1.3",
+
+    # Spatial indexing (STRtree) + KD-Tree for endpoint snapping
+    "shapely>=2.0",
+    "scipy>=1.12",
+
+    # Validated public API models
+    "pydantic>=2.6",
+
+    # CLI
+    "typer>=0.12",
+
+    # NFP cache serialisation
+    "msgpack>=1.0",
+
+    # In-process LRU cache with configurable capacity
+    "cachetools>=5.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "hypothesis>=6.100",
+    "hypothesis[numpy]",
+    "ruff>=0.4",
+    "mypy>=1.10",
+    "pre-commit>=3.7",
+]
+docs = [
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.25",
+]
+
+[project.scripts]
+squeezenest = "squeezenest.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/example/squeezenest"
+Documentation = "https://squeezenest.readthedocs.io"
+"Bug Tracker" = "https://github.com/example/squeezenest/issues"
+
+# ---------------------------------------------------------------------------
+# Tool configuration
+# ---------------------------------------------------------------------------
+
+[tool.hatch.build.targets.wheel]
+packages = ["squeezenest"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--tb=short -q"
+filterwarnings = ["ignore::hypothesis.errors.HypothesisWarning"]
+
+[tool.coverage.run]
+source = ["squeezenest"]
+omit = ["squeezenest/_nesting/ga.py"]  # GA is v0.2; excluded from v0.1 coverage target
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
+fail_under = 85
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = ["clipper2.*", "ezdxf.*", "scipy.*", "msgpack.*", "cachetools.*"]
+ignore_missing_imports = true
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "ANN", "PLC", "PLR"]
+ignore = [
+    "ANN101",   # Missing type annotation for 'self'
+    "ANN102",   # Missing type annotation for 'cls'
+    "PLR2004",  # Magic value in comparison (acceptable in geometry code)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ANN", "PLR"]   # Relax annotation + magic value rules in tests
