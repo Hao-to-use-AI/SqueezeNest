@@ -74,6 +74,19 @@ best = sweep_result.best_yield()
 print(f"Max Yield achieved: {best.yield_count} (scale_x={best.scale_x:.2f}, scale_y={best.scale_y:.2f})")
 ```
 
+### 4. Interactive PCB Panelization Web Demo
+
+SqueezeNest includes an interactive local web studio to test panelization with custom `.dxf` CAD files, live 2D vector preview (SVG), stop controls, timeout protection, and direct DXF panel export.
+
+```bash
+# Launch the web demo server
+./.venv/bin/python demo/server.py --port 8080
+```
+
+Then open your browser at: **http://localhost:8080**
+
+For full instructions, user controls, and empirical nesting benchmark analysis, see [`demo/Readme_Demo.md`](demo/Readme_Demo.md).
+
 ---
 
 ## Appendix A: How It Works (Explained Simply)

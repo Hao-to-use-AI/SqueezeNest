@@ -1,0 +1,1736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SqueezeNest — 2D PCB Panelization Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #080c14;
+      --bg-card: rgba(16, 24, 40, 0.75);
+      --bg-card-hover: rgba(22, 33, 56, 0.85);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --border-glow: rgba(16, 185, 129, 0.35);
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --accent-emerald: #10b981;
+      --accent-emerald-glow: rgba(16, 185, 129, 0.4);
+      --accent-cyan: #06b6d4;
+      --accent-amber: #f59e0b;
+      --accent-purple: #8b5cf6;
+      --danger: #ef4444;
+      --pcb-substrate: #0e1e17;
+      --pcb-mask: rgba(16, 185, 129, 0.3);
+      --pcb-mask-stroke: #10b981;
+      --pcb-hole: #060b09;
+      --panel-border: #fbbf24;
+      --font-ui: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: var(--font-ui);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      background-image: 
+        radial-gradient(circle at 10% 20%, rgba(16, 185, 129, 0.05) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(6, 182, 212, 0.04) 0%, transparent 40%),
+        linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+    }
+
+    /* Top Navigation Header */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 28px;
+      border-bottom: 1px solid var(--border-color);
+      background: rgba(8, 12, 20, 0.8);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 16px var(--accent-emerald-glow);
+    }
+
+    .logo-icon svg {
+      width: 20px;
+      height: 20px;
+      fill: #fff;
+    }
+
+    .logo-text h1 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      background: linear-gradient(90deg, #ffffff, #94a3b8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .logo-text span {
+      font-size: 11px;
+      color: var(--accent-emerald);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 600;
+    }
+
+    .header-badges {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+    }
+
+    .badge.active {
+      background: rgba(16, 185, 129, 0.12);
+      border-color: rgba(16, 185, 129, 0.3);
+      color: #34d399;
+    }
+
+    .badge .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+    }
+
+    /* Main Grid Layout */
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 24px;
+      padding: 24px 28px;
+      max-width: 1720px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    @media (max-width: 1080px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Left Sidebar: Controls */
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 20px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .card-title svg {
+      width: 16px;
+      height: 16px;
+      opacity: 0.7;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 13px;
+      color: var(--text-main);
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    input[type="number"], select {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: #fff;
+      font-family: var(--font-mono);
+      font-size: 14px;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    input[type="number"]:focus, select:focus {
+      border-color: var(--accent-emerald);
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+      background: rgba(0, 0, 0, 0.55);
+    }
+
+    .input-unit {
+      position: absolute;
+      right: 12px;
+      font-size: 12px;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      pointer-events: none;
+    }
+
+    /* Preset Chips */
+    .chip-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .chip {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      border-radius: 8px;
+      padding: 4px 9px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .chip:hover {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: rgba(16, 185, 129, 0.3);
+      color: #fff;
+    }
+
+    .chip.selected {
+      background: rgba(16, 185, 129, 0.25);
+      border-color: var(--accent-emerald);
+      color: #34d399;
+    }
+
+    /* Drop Zone */
+    .drop-zone {
+      border: 2px dashed rgba(255, 255, 255, 0.14);
+      border-radius: 12px;
+      padding: 24px 16px;
+      text-align: center;
+      cursor: pointer;
+      background: rgba(0, 0, 0, 0.2);
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: var(--accent-emerald);
+      background: rgba(16, 185, 129, 0.05);
+    }
+
+    .drop-zone svg {
+      width: 32px;
+      height: 32px;
+      fill: none;
+      stroke: var(--accent-emerald);
+      stroke-width: 1.8;
+      margin-bottom: 8px;
+    }
+
+    .drop-zone p {
+      font-size: 13px;
+      color: var(--text-main);
+      font-weight: 500;
+    }
+
+    .drop-zone span {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 4px;
+      display: block;
+    }
+
+    #file-input {
+      display: none;
+    }
+
+    /* File List */
+    .file-list {
+      margin-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 180px;
+      overflow-y: auto;
+    }
+
+    .file-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 12px;
+    }
+
+    .file-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      overflow: hidden;
+    }
+
+    .file-icon {
+      color: var(--accent-cyan);
+    }
+
+    .file-name {
+      font-family: var(--font-mono);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 160px;
+      color: var(--text-main);
+    }
+
+    .file-size {
+      color: var(--text-dim);
+      font-size: 10px;
+    }
+
+    .remove-file {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      display: flex;
+    }
+
+    .remove-file:hover {
+      color: var(--danger);
+      background: rgba(239, 68, 68, 0.1);
+    }
+
+    /* Sample Selector Dropdown */
+    .sample-loader {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+      width: 100%;
+      justify-content: center;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.16);
+    }
+
+    /* Optimize CTA Button */
+    .btn-primary {
+      width: 100%;
+      padding: 14px 20px;
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: #ffffff;
+      border: none;
+      border-radius: 12px;
+      font-family: var(--font-ui);
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      cursor: pointer;
+      box-shadow: 0 4px 20px var(--accent-emerald-glow);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 28px rgba(16, 185, 129, 0.5);
+      background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+    }
+
+    .btn-primary:active {
+      transform: translateY(1px);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .btn-stop {
+      padding: 14px 20px;
+      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+      color: #ffffff;
+      border: none;
+      border-radius: 12px;
+      font-family: var(--font-ui);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(239, 68, 68, 0.4);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .btn-stop:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 22px rgba(239, 68, 68, 0.55);
+      background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+    }
+
+    .btn-stop:active {
+      transform: translateY(1px);
+    }
+
+    .btn-stop:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .status-banner {
+      padding: 12px 18px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid var(--border-color);
+      background: rgba(16, 24, 40, 0.85);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+      margin-bottom: 2px;
+    }
+    .status-banner.completed {
+      border-color: rgba(16, 185, 129, 0.4);
+      color: #34d399;
+      background: rgba(16, 185, 129, 0.1);
+    }
+    .status-banner.stopped {
+      border-color: rgba(245, 158, 11, 0.4);
+      color: #fbbf24;
+      background: rgba(245, 158, 11, 0.1);
+    }
+    .status-banner.timeout {
+      border-color: rgba(239, 68, 68, 0.4);
+      color: #fca5a5;
+      background: rgba(239, 68, 68, 0.1);
+    }
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2.5px solid rgba(255, 255, 255, 0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Right Main Panel: Visualizer & Metrics */
+    .viewport-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* Metrics Bar */
+    .metrics-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+    }
+
+    @media (max-width: 1300px) {
+      .metrics-row {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .metric-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .metric-label {
+      font-size: 11px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      font-weight: 600;
+    }
+
+    .metric-value {
+      font-family: var(--font-mono);
+      font-size: 26px;
+      font-weight: 700;
+      color: #fff;
+      margin-top: 6px;
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+    }
+
+    .metric-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 400;
+      font-family: var(--font-ui);
+    }
+
+    .metric-util {
+      color: #34d399;
+    }
+
+    /* Progress mini bar */
+    .progress-track {
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 2px;
+      margin-top: 8px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #10b981, #06b6d4);
+      transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    /* 2D Graphical Preview Canvas Viewport */
+    .canvas-container {
+      flex: 1;
+      background: #070b10;
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      position: relative;
+      min-height: 540px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.6);
+    }
+
+    .canvas-toolbar {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(16, 24, 40, 0.85);
+      border: 1px solid var(--border-color);
+      padding: 6px;
+      border-radius: 10px;
+      backdrop-filter: blur(12px);
+      z-index: 10;
+    }
+
+    .tool-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.15s ease;
+    }
+
+    .tool-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+    }
+
+    .tool-btn.active {
+      background: rgba(16, 185, 129, 0.2);
+      color: #34d399;
+    }
+
+    .tool-btn svg {
+      width: 14px;
+      height: 14px;
+      fill: currentColor;
+    }
+
+    .legend-bar {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: rgba(16, 24, 40, 0.85);
+      border: 1px solid var(--border-color);
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 11px;
+      color: var(--text-muted);
+      backdrop-filter: blur(12px);
+      z-index: 10;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+    }
+
+    /* SVG viewport */
+    #preview-svg {
+      width: 100%;
+      height: 100%;
+      cursor: grab;
+      user-select: none;
+    }
+
+    #preview-svg:active {
+      cursor: grabbing;
+    }
+
+    /* Placeholder Empty State */
+    .empty-state {
+      text-align: center;
+      color: var(--text-dim);
+      padding: 40px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .empty-state svg {
+      width: 48px;
+      height: 48px;
+      stroke: rgba(255, 255, 255, 0.15);
+      stroke-width: 1.5;
+      fill: none;
+    }
+
+    .empty-state h3 {
+      font-size: 16px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .empty-state p {
+      font-size: 13px;
+      max-width: 320px;
+    }
+
+    /* Tooltip */
+    #tooltip {
+      position: fixed;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #fff;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      pointer-events: none;
+      display: none;
+      z-index: 200;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    }
+
+    /* Action Footer */
+    .action-bar {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 12px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 14px 20px;
+    }
+
+    .btn-download {
+      background: linear-gradient(135deg, #06b6d4 0%, #0284c7 100%);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 16px rgba(6, 182, 212, 0.3);
+      transition: all 0.2s ease;
+    }
+
+    .btn-download:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 22px rgba(6, 182, 212, 0.45);
+    }
+
+    .btn-download:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .btn-download svg {
+      width: 16px;
+      height: 16px;
+      fill: currentColor;
+    }
+
+    /* Alert / Status toast */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      padding: 12px 18px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 500;
+      background: rgba(16, 24, 40, 0.95);
+      border: 1px solid var(--border-color);
+      color: #fff;
+      display: none;
+      z-index: 300;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      backdrop-filter: blur(12px);
+    }
+    #toast.error {
+      border-color: rgba(239, 68, 68, 0.5);
+      color: #fca5a5;
+    }
+    #toast.success {
+      border-color: rgba(16, 185, 129, 0.5);
+      color: #6ee7b7;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <header>
+    <div class="logo-group">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24">
+          <path d="M3 3h7v7H3V3zm11 0h7v7h-7V3zm0 11h7v7h-7v-7zM3 14h7v7H3v-7z"/>
+        </svg>
+      </div>
+      <div class="logo-text">
+        <h1>SqueezeNest</h1>
+        <span>PCB Panelization Studio</span>
+      </div>
+    </div>
+
+    <div class="header-badges">
+      <div class="badge active">
+        <span class="dot"></span>
+        Integer Geometric Kernel (Clipper2 / Shapely)
+      </div>
+      <div class="badge">
+        v0.1.0 BLF Engine
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Workspace -->
+  <main>
+    <!-- Left Configuration Sidebar -->
+    <aside class="sidebar">
+
+      <!-- Panel Stock Dimensions -->
+      <section class="card">
+        <div class="card-title">
+          <span>Panel Dimensions</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+          </svg>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="panel-width">Width (W)</label>
+            <div class="input-wrapper">
+              <input type="number" id="panel-width" value="150" min="10" max="1000" step="1">
+              <span class="input-unit">mm</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="panel-height">Height (H)</label>
+            <div class="input-wrapper">
+              <input type="number" id="panel-height" value="150" min="10" max="1000" step="1">
+              <span class="input-unit">mm</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Presets -->
+        <div class="chip-group">
+          <button type="button" class="chip" onclick="setPanelSize(100, 100)">100x100mm</button>
+          <button type="button" class="chip" onclick="setPanelSize(100, 160)">Eurocard (100x160)</button>
+          <button type="button" class="chip selected" onclick="setPanelSize(150, 150)">150x150mm</button>
+          <button type="button" class="chip" onclick="setPanelSize(200, 200)">200x200mm</button>
+          <button type="button" class="chip" onclick="setPanelSize(250, 300)">250x300mm</button>
+        </div>
+      </section>
+
+      <!-- Routing & Clearance Rules -->
+      <section class="card">
+        <div class="card-title">
+          <span>Routing & Spacing</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 6v6l4 2"/>
+          </svg>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="clearance">Router Kerf / Clearance</label>
+          <div class="input-wrapper">
+            <input type="number" id="clearance" value="2.0" min="0" max="20" step="0.1">
+            <span class="input-unit">mm</span>
+          </div>
+          <div class="chip-group">
+            <button type="button" class="chip" onclick="setClearance(0.5)">0.5mm (Laser/V-Score)</button>
+            <button type="button" class="chip" onclick="setClearance(1.5)">1.5mm</button>
+            <button type="button" class="chip selected" onclick="setClearance(2.0)">2.0mm (Standard CNC)</button>
+            <button type="button" class="chip" onclick="setClearance(2.4)">2.4mm (Heavy)</button>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top: 14px;">
+          <label class="form-label" for="snap-tolerance">Endpoint Gap Snapping (CAD Healing)</label>
+          <div class="input-wrapper">
+            <input type="number" id="snap-tolerance" value="0.05" min="0.001" max="5.0" step="0.01">
+            <span class="input-unit">mm</span>
+          </div>
+          <div class="chip-group">
+            <button type="button" class="chip" onclick="setSnapTolerance(0.01)">0.01mm (Strict)</button>
+            <button type="button" class="chip selected" onclick="setSnapTolerance(0.05)">0.05mm (Default)</button>
+            <button type="button" class="chip" onclick="setSnapTolerance(0.1)">0.1mm (Relaxed)</button>
+            <button type="button" class="chip" onclick="setSnapTolerance(0.5)">0.5mm (Coarse)</button>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top: 14px;">
+          <label class="form-label" for="rotation-mode">Rotation Freedom</label>
+          <select id="rotation-mode">
+            <option value="ortho" selected>Orthogonal (0°, 90°, 180°, 270°)</option>
+            <option value="none">Fixed Upright (0° only)</option>
+            <option value="continuous">Continuous (Fine steps)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="packing-mode">Packing Objective</label>
+          <select id="packing-mode" onchange="toggleQuantityMode()">
+            <option value="max_fill" selected>Maximize Yield (Fill Panel)</option>
+            <option value="exact">Fixed Target Quantity</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="target-qty-group" style="display: none;">
+          <label class="form-label" for="target-qty">Target Quantity Per Board</label>
+          <div class="input-wrapper">
+            <input type="number" id="target-qty" value="10" min="1" max="200" step="1">
+            <span class="input-unit">pcs</span>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top: 14px;">
+          <label class="form-label" for="timeout-sec">Upper Limit Timer (Max Runtime)</label>
+          <div class="input-wrapper">
+            <input type="number" id="timeout-sec" value="30" min="5" max="300" step="5">
+            <span class="input-unit">sec</span>
+          </div>
+          <div class="chip-group">
+            <button type="button" class="chip" onclick="setTimeoutSec(10)">10s (Fast)</button>
+            <button type="button" class="chip selected" onclick="setTimeoutSec(30)">30s (Default)</button>
+            <button type="button" class="chip" onclick="setTimeoutSec(60)">60s</button>
+            <button type="button" class="chip" onclick="setTimeoutSec(120)">120s</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- DXF File Uploads -->
+      <section class="card">
+        <div class="card-title">
+          <span>PCB DXF Files</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+        </div>
+
+        <!-- Drag & Drop Area -->
+        <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+          <svg viewBox="0 0 24 24">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <p>Click or Drag DXF files here</p>
+          <span>Supports AutoCAD R12-R2018 (.dxf)</span>
+          <input type="file" id="file-input" accept=".dxf" multiple>
+        </div>
+
+        <!-- Quick Sample Fixtures -->
+        <div class="sample-loader">
+          <button type="button" class="btn-secondary" id="btn-sample-washer" onclick="loadSample('washer.dxf')">
+            ⚡ Load Washer (with Cutout)
+          </button>
+          <button type="button" class="btn-secondary" id="btn-sample-3parts" onclick="loadSample('three_parts.dxf')">
+            ⚡ 3-Part Set
+          </button>
+        </div>
+
+        <!-- Selected Files List -->
+        <div class="file-list" id="file-list"></div>
+      </section>
+
+      <!-- Run / Stop Button Group -->
+      <div style="display: flex; gap: 10px; width: 100%;">
+        <button type="button" class="btn-primary" id="btn-optimize" onclick="runOptimization()" style="flex: 1;">
+          <span class="spinner" id="spinner"></span>
+          <span id="btn-text">⚡ Optimize Panel Layout</span>
+        </button>
+        <button type="button" class="btn-stop" id="btn-stop" onclick="stopOptimization()" style="display: none;">
+          ⏹ Stop
+        </button>
+      </div>
+
+    </aside>
+
+    <!-- Right Workspace: Visualizer & Results -->
+    <section class="viewport-panel">
+
+      <!-- Status Banner -->
+      <div id="status-banner" class="status-banner" style="display: none;">
+        <span id="status-banner-icon"></span>
+        <span id="status-banner-text"></span>
+      </div>
+
+      <!-- Metrics Row -->
+      <div class="metrics-row">
+        <div class="metric-card">
+          <span class="metric-label">Panel Utilization</span>
+          <div class="metric-value">
+            <span id="stat-utilization">0.0</span>%
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" id="progress-utilization"></div>
+          </div>
+        </div>
+
+        <div class="metric-card">
+          <span class="metric-label">Placed Boards</span>
+          <div class="metric-value">
+            <span id="stat-placed">0</span>
+            <span class="metric-sub" id="stat-total-req">/ 0 pcs</span>
+          </div>
+          <span class="metric-sub" id="stat-unplaced" style="color: var(--text-dim); margin-top: 4px;">Ready to optimize</span>
+        </div>
+
+        <div class="metric-card">
+          <span class="metric-label">Active Panel Size</span>
+          <div class="metric-value">
+            <span id="stat-panel-size">150 × 150</span>
+            <span class="metric-sub">mm</span>
+          </div>
+          <span class="metric-sub" id="stat-panel-area" style="color: var(--text-dim); margin-top: 4px;">22,500 mm²</span>
+        </div>
+
+        <div class="metric-card">
+          <span class="metric-label">Min Spacing / Kerf</span>
+          <div class="metric-value">
+            <span id="stat-clearance">2.0</span>
+            <span class="metric-sub">mm</span>
+          </div>
+          <span class="metric-sub" id="stat-rot-mode" style="color: var(--text-dim); margin-top: 4px;">Ortho (0, 90, 180, 270°)</span>
+        </div>
+      </div>
+
+      <!-- 2D Graphical SVG Preview -->
+      <div class="canvas-container" id="canvas-container">
+        
+        <!-- Controls Toolbar -->
+        <div class="canvas-toolbar">
+          <button type="button" class="tool-btn active" id="btn-toggle-clearance" onclick="toggleClearance()" title="Toggle Clearance Halo">
+            Halo
+          </button>
+          <button type="button" class="tool-btn active" id="btn-toggle-labels" onclick="toggleLabels()" title="Toggle Part Labels">
+            Labels
+          </button>
+          <button type="button" class="tool-btn active" id="btn-toggle-grid" onclick="toggleGrid()" title="Toggle Grid Overlay">
+            Grid
+          </button>
+          <div style="width: 1px; height: 16px; background: var(--border-color); margin: 0 4px;"></div>
+          <button type="button" class="tool-btn" onclick="zoomIn()" title="Zoom In">+</button>
+          <button type="button" class="tool-btn" onclick="zoomOut()" title="Zoom Out">-</button>
+          <button type="button" class="tool-btn" onclick="fitView()" title="Fit to View">⛶ Fit</button>
+        </div>
+
+        <!-- Legend Overlay -->
+        <div class="legend-bar">
+          <div class="legend-item">
+            <div class="legend-color" style="border: 1px solid #fbbf24; background: transparent;"></div>
+            <span>Panel Border</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: rgba(16, 185, 129, 0.4); border: 1px solid #10b981;"></div>
+            <span>PCB Outline</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: #060b09; border: 1px solid #38bdf8;"></div>
+            <span>Drill Hole / Cutout</span>
+          </div>
+        </div>
+
+        <!-- Interactive SVG Viewport -->
+        <svg id="preview-svg" viewBox="0 0 150 150">
+          <defs>
+            <!-- Background Grid Pattern -->
+            <pattern id="pcb-grid" width="10" height="10" patternUnits="userSpaceOnUse">
+              <path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255, 255, 255, 0.05)" stroke-width="0.3"/>
+            </pattern>
+            <pattern id="pcb-grid-major" width="50" height="50" patternUnits="userSpaceOnUse">
+              <rect width="50" height="50" fill="url(#pcb-grid)" />
+              <path d="M 50 0 L 0 0 0 50" fill="none" stroke="rgba(16, 185, 129, 0.15)" stroke-width="0.6"/>
+            </pattern>
+          </defs>
+
+          <!-- Transform Root for Pan & Zoom -->
+          <g id="viewport-group">
+            <!-- Background substrate -->
+            <rect id="substrate-rect" x="0" y="0" width="150" height="150" fill="#0c1712" stroke="#fbbf24" stroke-width="0.8"/>
+            <!-- Grid overlay -->
+            <rect id="grid-rect" x="0" y="0" width="150" height="150" fill="url(#pcb-grid-major)"/>
+            
+            <!-- Placed parts container -->
+            <g id="parts-group"></g>
+          </g>
+        </svg>
+
+        <!-- Empty State Prompt -->
+        <div class="empty-state" id="empty-state">
+          <svg viewBox="0 0 24 24">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <path d="M9 3v18M3 9h18"/>
+          </svg>
+          <h3>Ready for PCB Panelization</h3>
+          <p>Load a sample CAD DXF or upload your board files on the left, then click <strong>Optimize Panel Layout</strong>.</p>
+        </div>
+
+        <!-- Diagnostic Error Card -->
+        <div id="error-card" style="display: none; border: 1px solid rgba(239, 68, 68, 0.4); background: rgba(16, 24, 40, 0.95); border-radius: 12px; margin: 20px; text-align: left; max-width: 650px; padding: 24px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); z-index: 20;">
+          <h3 style="color: #f87171; display: flex; align-items: center; gap: 8px; font-size: 15px;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            CAD Ingestion Diagnostic Report
+          </h3>
+          <pre id="error-details" style="font-family: var(--font-mono); font-size: 12px; color: #cbd5e1; white-space: pre-wrap; margin-top: 12px; line-height: 1.5; max-height: 220px; overflow-y: auto; background: rgba(0,0,0,0.4); padding: 12px; border-radius: 8px;"></pre>
+          <div style="margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap;">
+            <button type="button" class="chip selected" style="padding: 6px 12px;" onclick="document.getElementById('snap-tolerance').value=0.1; document.getElementById('error-card').style.display='none'; runOptimization();">
+              ⚡ Auto-Retry with 0.1 mm Snap
+            </button>
+            <button type="button" class="chip" style="padding: 6px 12px;" onclick="document.getElementById('snap-tolerance').value=0.5; document.getElementById('error-card').style.display='none'; runOptimization();">
+              ⚡ Try 0.5 mm Snap
+            </button>
+            <button type="button" class="chip" style="padding: 6px 12px;" onclick="document.getElementById('error-card').style.display='none';">
+              Dismiss
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Action Footer -->
+      <div class="action-bar">
+        <button type="button" class="btn-secondary" style="width: auto;" onclick="exportSVG()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Export SVG
+        </button>
+
+        <button type="button" class="btn-download" id="btn-download-dxf" disabled onclick="downloadDXF()">
+          <svg viewBox="0 0 24 24">
+            <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+          </svg>
+          <span>Download Panelized DXF</span>
+        </button>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- Tooltip -->
+  <div id="tooltip"></div>
+
+  <!-- Toast Message -->
+  <div id="toast"></div>
+
+  <script>
+    // State
+    const state = {
+      files: [],          // [{ filename, content_base64, size }]
+      activeDownloadId: null,
+      activeJobId: null,
+      timerInterval: null,
+      lastResult: null,
+      showClearance: true,
+      showLabels: true,
+      showGrid: true,
+      // Pan/Zoom
+      panX: 0,
+      panY: 0,
+      scale: 1,
+      isPanning: false,
+      startX: 0,
+      startY: 0
+    };
+
+    // DOM Elements
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const fileListEl = document.getElementById('file-list');
+    const svgEl = document.getElementById('preview-svg');
+    const viewportGroup = document.getElementById('viewport-group');
+    const substrateRect = document.getElementById('substrate-rect');
+    const gridRect = document.getElementById('grid-rect');
+    const partsGroup = document.getElementById('parts-group');
+    const emptyState = document.getElementById('empty-state');
+    const btnOptimize = document.getElementById('btn-optimize');
+    const btnStop = document.getElementById('btn-stop');
+    const spinner = document.getElementById('spinner');
+    const btnText = document.getElementById('btn-text');
+    const btnDownloadDxf = document.getElementById('btn-download-dxf');
+    const statusBanner = document.getElementById('status-banner');
+    const statusBannerIcon = document.getElementById('status-banner-icon');
+    const statusBannerText = document.getElementById('status-banner-text');
+    const tooltip = document.getElementById('tooltip');
+    const toast = document.getElementById('toast');
+
+    // Preset helper
+    function setPanelSize(w, h) {
+      document.getElementById('panel-width').value = w;
+      document.getElementById('panel-height').value = h;
+      document.querySelectorAll('.card:first-child .chip').forEach(c => c.classList.remove('selected'));
+      event.target.classList.add('selected');
+      updateEmptyView();
+    }
+
+    function setClearance(c) {
+      document.getElementById('clearance').value = c;
+      event.target.parentElement.querySelectorAll('.chip').forEach(ch => ch.classList.remove('selected'));
+      event.target.classList.add('selected');
+    }
+
+    function setSnapTolerance(s) {
+      document.getElementById('snap-tolerance').value = s;
+      event.target.parentElement.querySelectorAll('.chip').forEach(ch => ch.classList.remove('selected'));
+      event.target.classList.add('selected');
+    }
+
+    function setTimeoutSec(s) {
+      document.getElementById('timeout-sec').value = s;
+      event.target.parentElement.querySelectorAll('.chip').forEach(ch => ch.classList.remove('selected'));
+      event.target.classList.add('selected');
+    }
+
+    function toggleQuantityMode() {
+      const mode = document.getElementById('packing-mode').value;
+      document.getElementById('target-qty-group').style.display = mode === 'exact' ? 'block' : 'none';
+    }
+
+    // Drag & Drop
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      handleFiles(e.dataTransfer.files);
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      handleFiles(e.target.files);
+    });
+
+    function handleFiles(fileList) {
+      for (const file of fileList) {
+        if (!file.name.toLowerCase().endsWith('.dxf')) {
+          showToast('Only .dxf files are supported', 'error');
+          continue;
+        }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const b64 = e.target.result.split(',')[1];
+          // Remove existing duplicate
+          state.files = state.files.filter(f => f.filename !== file.name);
+          state.files.push({
+            filename: file.name,
+            content_base64: b64,
+            size: file.size
+          });
+          renderFileList();
+          showToast(`Loaded ${file.name}`, 'success');
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function renderFileList() {
+      fileListEl.innerHTML = '';
+      state.files.forEach((file, idx) => {
+        const item = document.createElement('div');
+        item.className = 'file-item';
+        item.innerHTML = `
+          <div class="file-info">
+            <span class="file-icon">📄</span>
+            <div>
+              <div class="file-name" title="${file.filename}">${file.filename}</div>
+              <div class="file-size">${(file.size / 1024).toFixed(1)} KB</div>
+            </div>
+          </div>
+          <button type="button" class="remove-file" onclick="removeFile(${idx})">✕</button>
+        `;
+        fileListEl.appendChild(item);
+      });
+    }
+
+    function removeFile(idx) {
+      state.files.splice(idx, 1);
+      renderFileList();
+    }
+
+    // Sample CAD Loaders
+    async function loadSample(name) {
+      try {
+        const resp = await fetch(`/api/sample-dxf?name=${encodeURIComponent(name)}`);
+        if (!resp.ok) throw new Error('Failed to load sample');
+        const data = await resp.json();
+        state.files = [{
+          filename: data.filename,
+          content_base64: data.content_base64,
+          size: atob(data.content_base64).length
+        }];
+        renderFileList();
+        showToast(`Loaded sample fixture: ${name}`, 'success');
+        // Auto run optimization for quick feedback
+        runOptimization();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    // Pan and Zoom
+    svgEl.addEventListener('mousedown', (e) => {
+      state.isPanning = true;
+      state.startX = e.clientX - state.panX;
+      state.startY = e.clientY - state.panY;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!state.isPanning) return;
+      state.panX = e.clientX - state.startX;
+      state.panY = e.clientY - state.startY;
+      applyTransform();
+    });
+
+    window.addEventListener('mouseup', () => {
+      state.isPanning = false;
+    });
+
+    svgEl.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const zoomFactor = e.deltaY < 0 ? 1.15 : 0.87;
+      state.scale *= zoomFactor;
+      state.scale = Math.max(0.2, Math.min(state.scale, 15));
+      applyTransform();
+    });
+
+    function applyTransform() {
+      viewportGroup.setAttribute('transform', `translate(${state.panX}, ${state.panY}) scale(${state.scale})`);
+    }
+
+    function zoomIn() {
+      state.scale *= 1.25;
+      applyTransform();
+    }
+
+    function zoomOut() {
+      state.scale *= 0.8;
+      applyTransform();
+    }
+
+    function fitView() {
+      state.panX = 0;
+      state.panY = 0;
+      state.scale = 1;
+      applyTransform();
+    }
+
+    function toggleClearance() {
+      state.showClearance = !state.showClearance;
+      document.getElementById('btn-toggle-clearance').classList.toggle('active', state.showClearance);
+      document.querySelectorAll('.halo-path').forEach(el => {
+        el.style.display = state.showClearance ? 'block' : 'none';
+      });
+    }
+
+    function toggleLabels() {
+      state.showLabels = !state.showLabels;
+      document.getElementById('btn-toggle-labels').classList.toggle('active', state.showLabels);
+      document.querySelectorAll('.label-text').forEach(el => {
+        el.style.display = state.showLabels ? 'block' : 'none';
+      });
+    }
+
+    function toggleGrid() {
+      state.showGrid = !state.showGrid;
+      document.getElementById('btn-toggle-grid').classList.toggle('active', state.showGrid);
+      gridRect.style.display = state.showGrid ? 'block' : 'none';
+    }
+
+    function updateEmptyView() {
+      const W = parseFloat(document.getElementById('panel-width').value) || 150;
+      const H = parseFloat(document.getElementById('panel-height').value) || 150;
+      svgEl.setAttribute('viewBox', `0 0 ${W} ${H}`);
+      substrateRect.setAttribute('width', W);
+      substrateRect.setAttribute('height', H);
+      gridRect.setAttribute('width', W);
+      gridRect.setAttribute('height', H);
+      document.getElementById('stat-panel-size').textContent = `${W} × ${H}`;
+      document.getElementById('stat-panel-area').textContent = `${(W * H).toLocaleString()} mm²`;
+    }
+
+    // Stop Optimization Signal
+    async function stopOptimization() {
+      if (!state.activeJobId) return;
+      btnStop.disabled = true;
+      btnStop.textContent = 'Stopping...';
+      btnText.textContent = 'Gathering best layout...';
+      try {
+        await fetch('/api/stop', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ job_id: state.activeJobId })
+        });
+        showToast('Stop requested — retrieving best layout found so far...', 'success');
+      } catch (err) {
+        console.error('Stop error:', err);
+      }
+    }
+
+    // Optimization Engine Call
+    async function runOptimization() {
+      if (state.files.length === 0) {
+        showToast('Please upload or load at least one DXF file first', 'error');
+        return;
+      }
+
+      const panelW = parseFloat(document.getElementById('panel-width').value);
+      const panelH = parseFloat(document.getElementById('panel-height').value);
+      const clearance = parseFloat(document.getElementById('clearance').value);
+      const snapTol = parseFloat(document.getElementById('snap-tolerance').value) || 0.05;
+      const timeoutSec = parseFloat(document.getElementById('timeout-sec').value) || 30;
+      const rotMode = document.getElementById('rotation-mode').value;
+      const fillMode = document.getElementById('packing-mode').value;
+      const targetQty = parseInt(document.getElementById('target-qty').value) || 10;
+
+      // Unique Job ID for this optimization run
+      const jobId = 'job_' + Date.now();
+      state.activeJobId = jobId;
+
+      // Reset banners & error display
+      document.getElementById('error-card').style.display = 'none';
+      statusBanner.style.display = 'none';
+
+      // Update UI loading state
+      btnOptimize.disabled = true;
+      spinner.style.display = 'inline-block';
+      btnStop.style.display = 'inline-flex';
+      btnStop.disabled = false;
+      btnStop.textContent = '⏹ Stop';
+
+      // Live Timer display
+      let elapsedSeconds = 0;
+      btnText.textContent = `Optimizing (0s / ${timeoutSec}s)...`;
+      if (state.timerInterval) clearInterval(state.timerInterval);
+      state.timerInterval = setInterval(() => {
+        elapsedSeconds++;
+        btnText.textContent = `Optimizing (${elapsedSeconds}s / ${timeoutSec}s)...`;
+      }, 1000);
+
+      const payload = {
+        job_id: jobId,
+        panel_width_mm: panelW,
+        panel_height_mm: panelH,
+        clearance_mm: clearance,
+        snap_tolerance_mm: snapTol,
+        timeout_sec: timeoutSec,
+        rotation_mode: rotMode,
+        fill_mode: fillMode,
+        target_quantity: targetQty,
+        files: state.files
+      };
+
+      try {
+        const resp = await fetch('/api/optimize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await resp.json();
+        if (!resp.ok || !data.success) {
+          throw new Error(data.error || 'Optimization failed');
+        }
+
+        state.lastResult = data;
+        state.activeDownloadId = data.download_id;
+
+        // Render graphical preview
+        renderResult(data);
+        if (data.placed_count > 0) {
+          btnDownloadDxf.disabled = false;
+        }
+
+      } catch (err) {
+        showToast('DXF Ingestion Notice (see details in preview)', 'error');
+        const errCard = document.getElementById('error-card');
+        const errDetails = document.getElementById('error-details');
+        if (errCard && errDetails) {
+          emptyState.style.display = 'none';
+          errDetails.textContent = err.message;
+          errCard.style.display = 'block';
+        }
+      } finally {
+        if (state.timerInterval) {
+          clearInterval(state.timerInterval);
+          state.timerInterval = null;
+        }
+        btnOptimize.disabled = false;
+        spinner.style.display = 'none';
+        btnText.textContent = '⚡ Optimize Panel Layout';
+        btnStop.style.display = 'none';
+      }
+    }
+
+    // Render 2D SVG Geometries
+    function renderResult(data) {
+      emptyState.style.display = 'none';
+      const W = data.panel.width_mm;
+      const H = data.panel.height_mm;
+      const clearance = data.clearance_mm;
+
+      // Update ViewBox and substrates
+      svgEl.setAttribute('viewBox', `0 0 ${W} ${H}`);
+      substrateRect.setAttribute('width', W);
+      substrateRect.setAttribute('height', H);
+      gridRect.setAttribute('width', W);
+      gridRect.setAttribute('height', H);
+
+      // Update Status Banner with outcome
+      if (data.status === 'stopped_by_user') {
+        statusBanner.className = 'status-banner stopped';
+        statusBannerIcon.textContent = '⏹';
+        statusBannerText.textContent = `Optimization stopped by user: Showing best panelization found so far (${data.placed_count} boards placed, ${data.utilization_pct}% utilization in ${data.elapsed_sec}s).`;
+        statusBanner.style.display = 'flex';
+        showToast(`Stopped by user: ${data.placed_count} boards placed`, 'success');
+      } else if (data.status === 'timeout_reached') {
+        statusBanner.className = 'status-banner timeout';
+        statusBannerIcon.textContent = '⏱️';
+        statusBannerText.textContent = `Upper limit timer (${data.timeout_sec}s) reached: Showing best panelization found so far (${data.placed_count} boards placed, ${data.utilization_pct}% utilization).`;
+        statusBanner.style.display = 'flex';
+        showToast(`Time limit reached: Showing best ${data.placed_count} boards placed`, 'success');
+      } else {
+        statusBanner.className = 'status-banner completed';
+        statusBannerIcon.textContent = '✅';
+        statusBannerText.textContent = `Optimization complete: ${data.placed_count} boards placed (${data.utilization_pct}% utilization in ${data.elapsed_sec}s).`;
+        statusBanner.style.display = 'flex';
+        showToast(`Optimized! Placed ${data.placed_count} boards (${data.utilization_pct}% utilization)`, 'success');
+      }
+
+      // Update Metric Cards
+      document.getElementById('stat-utilization').textContent = data.utilization_pct.toFixed(1);
+      document.getElementById('progress-utilization').style.width = `${Math.min(100, data.utilization_pct)}%`;
+      document.getElementById('stat-placed').textContent = data.placed_count;
+      document.getElementById('stat-total-req').textContent = `/ ${data.total_requested} pcs`;
+      document.getElementById('stat-unplaced').textContent = data.unplaced_count > 0 
+        ? `${data.unplaced_count} could not fit (panel full)` 
+        : `100% of requested boards placed`;
+      document.getElementById('stat-panel-size').textContent = `${W} × ${H}`;
+      document.getElementById('stat-panel-area').textContent = `${data.panel.area_mm2.toLocaleString()} mm²`;
+      document.getElementById('stat-clearance').textContent = clearance.toFixed(1);
+
+      // Clear previous parts
+      partsGroup.innerHTML = '';
+
+      // Color palette for multiple parts
+      const colors = ['#10b981', '#06b6d4', '#8b5cf6', '#ec4899', '#f59e0b'];
+
+      // Add each placed part
+      data.placements.forEach((p, idx) => {
+        const color = colors[idx % colors.length];
+        const partG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        partG.setAttribute('class', 'part-instance');
+        partG.dataset.partId = p.part_id;
+        partG.dataset.rot = p.rotation_deg;
+        partG.dataset.pos = `${p.position_mm[0]}, ${p.position_mm[1]}`;
+
+        // Build SVG path string for outer boundary
+        const outerD = pointsToSvgPath(p.outline);
+
+        // 1. Optional clearance margin halo
+        if (clearance > 0) {
+          const halo = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          halo.setAttribute('d', outerD);
+          halo.setAttribute('fill', 'none');
+          halo.setAttribute('stroke', 'rgba(16, 185, 129, 0.25)');
+          halo.setAttribute('stroke-width', clearance * 2);
+          halo.setAttribute('stroke-linejoin', 'round');
+          halo.setAttribute('class', 'halo-path');
+          halo.style.display = state.showClearance ? 'block' : 'none';
+          partG.appendChild(halo);
+        }
+
+        // 2. Outer PCB body (emerald / cyan solder mask)
+        const outerPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        outerPath.setAttribute('d', outerD);
+        outerPath.setAttribute('fill', 'rgba(16, 185, 129, 0.35)');
+        outerPath.setAttribute('stroke', color);
+        outerPath.setAttribute('stroke-width', '0.6');
+        outerPath.setAttribute('stroke-linejoin', 'round');
+        partG.appendChild(outerPath);
+
+        // 3. Drill holes / cutouts
+        p.holes.forEach(hole => {
+          const holeD = pointsToSvgPath(hole);
+          const holePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          holePath.setAttribute('d', holeD);
+          holePath.setAttribute('fill', '#0c1712'); // Substrate background color
+          holePath.setAttribute('stroke', '#38bdf8');
+          holePath.setAttribute('stroke-width', '0.4');
+          partG.appendChild(holePath);
+        });
+
+        // 4. Centroid text label
+        const xs = p.outline.map(pt => pt[0]);
+        const ys = p.outline.map(pt => pt[1]);
+        const cx = xs.reduce((a, b) => a + b, 0) / xs.length;
+        const cy = ys.reduce((a, b) => a + b, 0) / ys.length;
+
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('x', cx);
+        text.setAttribute('y', cy);
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('dominant-baseline', 'central');
+        text.setAttribute('fill', '#ffffff');
+        text.setAttribute('font-size', Math.max(2.5, Math.min(W, H) * 0.025));
+        text.setAttribute('font-family', 'JetBrains Mono, monospace');
+        text.setAttribute('font-weight', '600');
+        text.setAttribute('class', 'label-text');
+        text.style.display = state.showLabels ? 'block' : 'none';
+        text.textContent = p.part_id;
+        partG.appendChild(text);
+
+        // Tooltip listeners
+        partG.addEventListener('mouseenter', (e) => {
+          tooltip.style.display = 'block';
+          tooltip.innerHTML = `
+            <strong>${p.part_id}</strong><br>
+            Position: (${p.position_mm[0]}, ${p.position_mm[1]}) mm<br>
+            Rotation: ${p.rotation_deg}°<br>
+            Holes: ${p.holes.length}
+          `;
+        });
+        partG.addEventListener('mousemove', (e) => {
+          tooltip.style.left = `${e.clientX + 14}px`;
+          tooltip.style.top = `${e.clientY + 14}px`;
+        });
+        partG.addEventListener('mouseleave', () => {
+          tooltip.style.display = 'none';
+        });
+
+        partsGroup.appendChild(partG);
+      });
+
+      fitView();
+    }
+
+    function pointsToSvgPath(pts) {
+      if (!pts || pts.length === 0) return '';
+      return 'M ' + pts.map(p => `${p[0]},${p[1]}`).join(' L ') + ' Z';
+    }
+
+    // Download DXF
+    function downloadDXF() {
+      if (!state.activeDownloadId) return;
+      window.location.href = `/api/download-dxf?id=${encodeURIComponent(state.activeDownloadId)}`;
+      showToast('Downloading panelized DXF...', 'success');
+    }
+
+    // Export SVG
+    function exportSVG() {
+      const svgData = new XMLSerializer().serializeToString(svgEl);
+      const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `squeezenest_panel_${document.getElementById('panel-width').value}x${document.getElementById('panel-height').value}mm.svg`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('Exported panel preview as SVG', 'success');
+    }
+
+    // Toast Notification
+    function showToast(msg, type = 'success') {
+      toast.textContent = msg;
+      toast.className = type;
+      toast.style.display = 'block';
+      setTimeout(() => {
+        toast.style.display = 'none';
+      }, 3500);
+    }
+
+    // Initial setup
+    updateEmptyView();
+  </script>
+</body>
+</html>

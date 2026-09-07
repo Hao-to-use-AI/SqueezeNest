@@ -10,6 +10,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.pyo
+demo/.dxf_cache/
+.dxf_cache/
 
 # ---------------------------------------------------------------------------
 # Distribution / packaging
