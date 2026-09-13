@@ -265,7 +265,15 @@ Configurable discrete step (e.g. every 45 deg). Continuous rotation is out of sc
 
 B=1 degrades to pure BLF greedy (fast). B=infinity is exhaustive (impractical for large sets).
 
-### 6.3 Genetic Algorithm (v0.2, optional)
+### 6.3 Lattice Tiling (Homogeneous Panelization)
+
+For homogeneous jobs (many copies of a single part), SqueezeNest implements a `Lattice` strategy.
+1. Computes the optimal 2-part interlocking cluster (minimizing convex-hull area over all valid rotations).
+2. Computes 2D axis-aligned and brick-wall tiling patterns of the cluster across the stock sheet.
+3. Falls back to BLF for any remaining quantities that don't fit in the lattice grid.
+This bypasses the BLF heuristic limitations and achieves near-optimal density.
+
+### 6.4 Genetic Algorithm (v0.2, optional)
 
 A GA optimises the **part sequence** passed to BLF, treating BLF as the fitness evaluator.
 Genome = permutation of part indices. Crossover = Order Crossover (OX). Mutation = adjacent swap.

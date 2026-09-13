@@ -467,6 +467,7 @@ class PanelizerHandler(SimpleHTTPRequestHandler):
             raw_timeout = float(req.get("timeout_sec", 30.0))
             raw_qty = int(req.get("target_quantity", 20))
             rot_str = str(req.get("rotation_mode", "ortho")).lower()
+            strategy_str = str(req.get("strategy", "blf")).lower()
             raw_fill_mode = str(req.get("fill_mode", "max_fill"))
             fill_mode = raw_fill_mode if raw_fill_mode in ("max_fill", "exact") else "max_fill"
             files_data = req.get("files", [])
@@ -495,7 +496,7 @@ class PanelizerHandler(SimpleHTTPRequestHandler):
             panel_h = min(max(raw_panel_h, MIN_PANEL_DIM_MM), MAX_PANEL_DIM_MM)
             clearance_mm = min(max(raw_clearance, 0.0), MAX_CLEARANCE_MM)
             eps_snap_mm = min(max(raw_snap, 0.001), 10.0)
-            timeout_sec = min(max(raw_timeout, MIN_TIMEOUT_SEC), MAX_TIMEOUT_SEC)
+            timeout_sec = max(raw_timeout, MIN_TIMEOUT_SEC) # MAX_TIMEOUT_SEC clamp removed
             target_quantity = min(max(raw_qty, 1), MAX_TARGET_QTY)
 
             # Determine rotation set
@@ -630,6 +631,7 @@ class PanelizerHandler(SimpleHTTPRequestHandler):
             if fill_mode == "max_fill":
                 panel_area = panel_w * panel_h
                 for item in ingested_parts_meta:
+                    part_lookup[item['part_id']] = item
                     outer, holes = item["poly"]
                     part_poly = SPolygon(outer)
                     part_area = max(1.0, part_poly.area)
@@ -641,22 +643,65 @@ class PanelizerHandler(SimpleHTTPRequestHandler):
                         part_lookup[inst_id] = item
             else:
                 for item in ingested_parts_meta:
+                    part_lookup[item['part_id']] = item
                     qty = max(1, item["user_qty"] or target_quantity)
                     for i in range(qty):
                         inst_id = f"{item['part_id']}_{i + 1}"
                         parts_to_pack.append((inst_id, item["poly"]))
                         part_lookup[inst_id] = item
 
-            # Execute timed BLF Nesting with cancellation & timeout
-            placements, unplaced, run_status = _timed_bottom_left_fill(
-                parts=parts_to_pack,
-                stock=stock,
-                clearance_mm=clearance_mm,
-                rotation_set=rotation_set,
-                fill_mode=fill_mode,
-                timeout_sec=timeout_sec,
-                job_id=job_id,
-            )
+            if strategy_str == "lattice":
+                from squeezenest.api.models import NestingJob, NestingStrategy, PartMetadata
+                job_parts = {}
+                for item in ingested_parts_meta:
+                    p_id = item['part_id']
+                    if fill_mode == "max_fill":
+                        outer, holes = item["poly"]
+                        part_area = max(1.0, SPolygon(outer).area)
+                        qty = min(60, max(4, int(((panel_w * panel_h) / part_area) * 1.3)))
+                    else:
+                        qty = max(1, item["user_qty"] or target_quantity)
+                    job_parts[p_id] = (item["poly"], PartMetadata(part_id=p_id, quantity=qty))
+
+                job = NestingJob(
+                    parts=job_parts,
+                    stock=[stock],
+                    clearance_mm=clearance_mm,
+                    rotation_set=rotation_set,
+                    strategy=NestingStrategy.LATTICE
+                )
+                from squeezenest._nesting.lattice import run_lattice_job
+                
+                t_start = time.perf_counter()
+                def lattice_stop_check() -> bool:
+                    return _ACTIVE_JOBS.get(job_id, {}).get("stop", False) or (time.perf_counter() - t_start >= timeout_sec)
+
+                try:
+                    result = run_lattice_job(job, stop_check=lattice_stop_check)
+                    placements = list(result.layout.placements)
+                    unplaced = list(result.layout.unplaced_parts)
+                    
+                    if _ACTIVE_JOBS.get(job_id, {}).get("stop", False):
+                        run_status = "stopped_by_user"
+                    elif time.perf_counter() - t_start >= timeout_sec:
+                        run_status = "timeout_reached"
+                    else:
+                        run_status = "success"
+                except Exception as ex:
+                    run_status = f"error_lattice: {ex}"
+                    placements = []
+                    unplaced = []
+            else:
+                # Execute timed BLF Nesting with cancellation & timeout
+                placements, unplaced, run_status = _timed_bottom_left_fill(
+                    parts=parts_to_pack,
+                    stock=stock,
+                    clearance_mm=clearance_mm,
+                    rotation_set=rotation_set,
+                    fill_mode=fill_mode,
+                    timeout_sec=timeout_sec,
+                    job_id=job_id,
+                )
 
             # Reconstruct geometry for preview and DXF export
             placements_result = []

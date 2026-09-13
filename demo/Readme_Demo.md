@@ -153,9 +153,8 @@ When a panel nears saturation:
 
 ## 6. Recommended Roadmap for Future SqueezeNest Iterations
 
-1. **Cluster / Pre-Pairing Strategy (Quick Win)**:
-   - For single-board panelization, automatically test creating an interlocking pair of two boards (one at $0^\circ$, one at $180^\circ$).
-   - Nest the paired clusters as super-tiles.
+1. **Cluster / Pre-Pairing Strategy (IMPLEMENTED)**:
+   - For single-board panelization, SqueezeNest now provides `NestingStrategy.LATTICE` which automatically pairs boards (e.g., $0^\circ$ and $180^\circ$ interlocks) and tiles them to bypass the "First-Fit" rotation trap. You can test this live in the Web Demo by selecting "Lattice Tiling" under the Nesting Strategy dropdown.
 2. **Compactness-Score Rotation Selection**:
    - Instead of breaking on the first legal rotation, evaluate all allowed rotations and pick the one that minimizes the resulting bounding envelope or maximizes local contact area.
 3. **Genetic Algorithm / Beam Search (v0.2)**:

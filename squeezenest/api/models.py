@@ -24,6 +24,12 @@ PolygonWithHoles = tuple[Polygon, list[Polygon]]       # (outer_ccw, [hole_cw, .
 # Enumerations
 # ---------------------------------------------------------------------------
 
+class NestingStrategy(Enum):
+    """Algorithm used by NestingJob.run() to place parts."""
+    BLF     = "blf"       # Greedy Bottom-Left Fill (default, backwards-compatible)
+    LATTICE = "lattice"   # Pair Clustering & Lattice Tiling (high-yield panelization)
+
+
 class ViolationSeverity(Enum):
     ERROR   = "ERROR"
     WARNING = "WARNING"
@@ -239,9 +245,13 @@ class NestingJob:
     beam_width: int = 5
     strict: bool = True
     cache_dir: Optional[Path] = None
+    strategy: NestingStrategy = NestingStrategy.BLF
 
     def run(self) -> "NestingResult":
         """Execute the nesting job. Raises NestingError if strict=True and fatal violations exist."""
+        if self.strategy == NestingStrategy.LATTICE:
+            from squeezenest._nesting.lattice import run_lattice_job  # noqa: PLC0415
+            return run_lattice_job(self)
         from squeezenest._nesting.blf import run_nesting_job  # noqa: PLC0415
         return run_nesting_job(self)
 
@@ -343,7 +353,7 @@ class SensitivityResult:
 
 __all__ = [
     "Point2D", "Polygon", "PolygonWithHoles",
-    "ViolationSeverity", "ViolationCode", "RotationSet",
+    "ViolationSeverity", "ViolationCode", "RotationSet", "NestingStrategy",
     "Violation", "ValidationReport",
     "PartMetadata", "StockSheet",
     "PlacedPart", "PlacementLayout",

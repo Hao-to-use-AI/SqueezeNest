@@ -938,6 +938,14 @@
         </div>
 
         <div class="form-group" style="margin-top: 14px;">
+          <label class="form-label" for="nesting-strategy">Nesting Strategy</label>
+          <select id="nesting-strategy">
+            <option value="blf" selected>Bottom-Left Fill (General Purpose)</option>
+            <option value="lattice">Lattice Tiling (High-Yield Panelization)</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-top: 14px;">
           <label class="form-label" for="rotation-mode">Rotation Freedom</label>
           <select id="rotation-mode">
             <option value="ortho" selected>Orthogonal (0°, 90°, 180°, 270°)</option>
@@ -965,7 +973,7 @@
         <div class="form-group" style="margin-top: 14px;">
           <label class="form-label" for="timeout-sec">Upper Limit Timer (Max Runtime)</label>
           <div class="input-wrapper">
-            <input type="number" id="timeout-sec" value="30" min="5" max="300" step="5">
+            <input type="number" id="timeout-sec" value="30" min="5" step="5">
             <span class="input-unit">sec</span>
           </div>
           <div class="chip-group">
@@ -1469,6 +1477,7 @@
       const clearance = parseFloat(document.getElementById('clearance').value);
       const snapTol = parseFloat(document.getElementById('snap-tolerance').value) || 0.05;
       const timeoutSec = parseFloat(document.getElementById('timeout-sec').value) || 30;
+      const strategy = document.getElementById('nesting-strategy').value;
       const rotMode = document.getElementById('rotation-mode').value;
       const fillMode = document.getElementById('packing-mode').value;
       const targetQty = parseInt(document.getElementById('target-qty').value) || 10;
@@ -1505,6 +1514,7 @@
         snap_tolerance_mm: snapTol,
         timeout_sec: timeoutSec,
         rotation_mode: rotMode,
+        strategy: strategy,
         fill_mode: fillMode,
         target_quantity: targetQty,
         files: state.files
