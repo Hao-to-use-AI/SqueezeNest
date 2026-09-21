@@ -28,6 +28,7 @@ class NestingStrategy(Enum):
     """Algorithm used by NestingJob.run() to place parts."""
     BLF     = "blf"       # Greedy Bottom-Left Fill (default, backwards-compatible)
     LATTICE = "lattice"   # Pair Clustering & Lattice Tiling (high-yield panelization)
+    GA      = "ga"        # Genetic Algorithm optimization
 
 
 class ViolationSeverity(Enum):
@@ -252,6 +253,9 @@ class NestingJob:
         if self.strategy == NestingStrategy.LATTICE:
             from squeezenest._nesting.lattice import run_lattice_job  # noqa: PLC0415
             return run_lattice_job(self)
+        if self.strategy == NestingStrategy.GA:
+            from squeezenest._nesting.ga import run_ga_job # noqa: PLC0415
+            return run_ga_job(self)
         from squeezenest._nesting.blf import run_nesting_job  # noqa: PLC0415
         return run_nesting_job(self)
 

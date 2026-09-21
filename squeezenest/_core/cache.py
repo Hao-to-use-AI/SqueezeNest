@@ -128,3 +128,113 @@ class NFPCache:
 
     def __len__(self) -> int:
         return len(self._store)
+
+# ---------------------------------------------------------------------------
+# SQLite Cache (Tier 2)
+# ---------------------------------------------------------------------------
+
+import sqlite3
+import msgpack
+import time
+from pathlib import Path
+
+class SQLiteNFPCache:
+    """On-disk SQLite cache for No-Fit Polygon results.
+    
+    Implements an LRU eviction policy with a maximum of 100 entries.
+    """
+    
+    def __init__(self, db_path: Path, max_size: int = 100) -> None:
+        self.db_path = db_path
+        self._max_size = max_size
+        self._conn = sqlite3.connect(self.db_path)
+        self._init_db()
+        
+    def _init_db(self) -> None:
+        with self._conn:
+            self._conn.execute(
+                '''CREATE TABLE IF NOT EXISTS nfp_cache (
+                    hash_key TEXT PRIMARY KEY,
+                    data BLOB,
+                    last_accessed_at REAL
+                )'''
+            )
+            # Create an index on last_accessed_at for fast eviction queries
+            self._conn.execute(
+                '''CREATE INDEX IF NOT EXISTS idx_last_accessed 
+                   ON nfp_cache(last_accessed_at)'''
+            )
+
+    def get(self, key: str) -> Any | None:
+        cur = self._conn.cursor()
+        cur.execute(
+            "SELECT data FROM nfp_cache WHERE hash_key = ?", (key,)
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+            
+        # Update last_accessed_at on cache hit
+        with self._conn:
+            self._conn.execute(
+                "UPDATE nfp_cache SET last_accessed_at = ? WHERE hash_key = ?",
+                (time.time(), key)
+            )
+            
+        return msgpack.unpackb(row[0])
+
+    def put(self, key: str, value: Any) -> None:
+        packed = msgpack.packb(value)
+        with self._conn:
+            # Upsert
+            self._conn.execute(
+                '''INSERT INTO nfp_cache (hash_key, data, last_accessed_at) 
+                   VALUES (?, ?, ?)
+                   ON CONFLICT(hash_key) DO UPDATE SET 
+                   data=excluded.data, last_accessed_at=excluded.last_accessed_at''',
+                (key, packed, time.time())
+            )
+        self._evict_if_needed()
+
+    def _evict_if_needed(self) -> None:
+        """Enforce the LRU limit by deleting the oldest records if exceeding max_size."""
+        with self._conn:
+            cur = self._conn.cursor()
+            cur.execute("SELECT COUNT(*) FROM nfp_cache")
+            count = cur.fetchone()[0]
+            
+            if count > self._max_size:
+                excess = count - self._max_size
+                self._conn.execute(
+                    '''DELETE FROM nfp_cache 
+                       WHERE hash_key IN (
+                           SELECT hash_key FROM nfp_cache 
+                           ORDER BY last_accessed_at ASC 
+                           LIMIT ?
+                       )''', (excess,)
+                )
+
+    def __len__(self) -> int:
+        cur = self._conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM nfp_cache")
+        return cur.fetchone()[0]
+
+class TieredNFPCache:
+    """Wrapper that combines Tier 1 (LRU) and Tier 2 (SQLite) caches."""
+    def __init__(self, mem_size: int, db_path: Path, db_size: int = 100):
+        self.t1 = NFPCache(mem_size)
+        self.t2 = SQLiteNFPCache(db_path, max_size=db_size)
+        
+    def get(self, key: str) -> Any | None:
+        val = self.t1.get(key)
+        if val is not None:
+            return val
+            
+        val = self.t2.get(key)
+        if val is not None:
+            self.t1.put(key, val)
+        return val
+        
+    def put(self, key: str, value: Any) -> None:
+        self.t1.put(key, value)
+        self.t2.put(key, value)

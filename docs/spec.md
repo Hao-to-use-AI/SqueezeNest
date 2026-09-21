@@ -229,8 +229,9 @@ Polygon hash normalisation: translate centroid to origin, lexicographically sort
 ### 5.3 Tier 2 -- On-Disk Content-Addressable Store
 
 - SQLite at `~/.squeezenest/nfp_cache.db` (XDG-compliant path)
-- Schema: `(key_hash BLOB PRIMARY KEY, nfp_bytes BLOB, created_at INTEGER)`
-- `nfp_bytes`: Clipper2 paths serialised as msgpack
+- Schema: `(hash_key TEXT PRIMARY KEY, data BLOB, last_accessed_at REAL)`
+- Features an LRU eviction policy limited to 100 entries to prevent disk bloat.
+- `data`: Clipper2 paths serialised as msgpack
 - Workers open DB in read-only WAL mode; writes serialised through a main-process cache-writer thread
 
 ### 5.4 Invalidation Rules
@@ -273,7 +274,7 @@ For homogeneous jobs (many copies of a single part), SqueezeNest implements a `L
 3. Falls back to BLF for any remaining quantities that don't fit in the lattice grid.
 This bypasses the BLF heuristic limitations and achieves near-optimal density.
 
-### 6.4 Genetic Algorithm (v0.2, optional)
+### 6.4 Genetic Algorithm (GA)
 
 A GA optimises the **part sequence** passed to BLF, treating BLF as the fitness evaluator.
 Genome = permutation of part indices. Crossover = Order Crossover (OX). Mutation = adjacent swap.

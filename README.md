@@ -97,11 +97,28 @@ print(f"Max Yield achieved: {best.yield_count} (scale_x={best.scale_x:.2f}, scal
 SqueezeNest includes an interactive local web studio to test panelization with custom `.dxf` CAD files, live 2D vector preview (SVG), stop controls, timeout protection, and direct DXF panel export.
 
 ```bash
-# Launch the web demo server
-./.venv/bin/python demo/server.py --port 8080
+# Launch the web demo server via CLI
+squeezenest serve --port 8080
 ```
 
 Then open your browser at: **http://localhost:8080**
+
+### 5. Command Line Interface (CLI)
+
+SqueezeNest provides a robust CLI via `typer`. You can run nesting jobs and sensitivity sweeps directly from your terminal:
+
+```bash
+# Basic Nesting
+squeezenest nest parts.dxf --width 100.0 --height 100.0 --clearance 0.5 --strategy blf
+
+# Genetic Algorithm (GA) Nesting Optimization
+squeezenest nest parts.dxf --width 100.0 --height 100.0 --strategy ga
+
+# Dimensional Sensitivity Sweep
+squeezenest sweep parts.dxf --width 100.0 --height 100.0
+```
+
+*Note: SqueezeNest v0.2 features an SQLite-backed Tier-2 NFP cache with LRU eviction (limit 100 entries) to speed up repeated runs.*
 
 For full instructions, user controls, and empirical nesting benchmark analysis, see [`demo/Readme_Demo.md`](demo/Readme_Demo.md).
 
