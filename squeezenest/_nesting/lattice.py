@@ -195,57 +195,76 @@ def run_lattice_job(job: NestingJob, stop_check: Callable[[], bool] | None = Non
     c_w = c_max_x - c_min_x
     c_h = c_max_y - c_min_y
     
+    # 2. Tile - Try all allowed global rotations of the cluster to maximize yield
+    best_placements: list[PlacedPart] = []
+    
+    # We will try rotating the found cluster globally
     a_min_x, a_min_y, _, _ = _part_bounding_box(outer)
+    poly_a = _translate_polygon(outer, -a_min_x, -a_min_y)
     
-    # 2. Tile
-    tile_positions = tile_cluster(c_w, c_h, stock, clearance_mm)
-    
-    placements: list[PlacedPart] = []
+    for global_angle in rotations:
+        # Rotate the cluster polygons globally around origin
+        rot_a = _rotate_polygon(poly_a, global_angle)
+        rot_b = _rotate_polygon(best_b_poly, global_angle)
+        
+        c_min_x, c_min_y, c_max_x, c_max_y = _combined_bounding_box(rot_a, rot_b)
+        c_w = c_max_x - c_min_x
+        c_h = c_max_y - c_min_y
+        
+        tile_positions = tile_cluster(c_w, c_h, stock, clearance_mm)
+        
+        current_placements: list[PlacedPart] = []
+        placed_count = 0
+        
+        # Calculate bounding box mins for the rotated A and B
+        ra_min_x, ra_min_y, _, _ = _part_bounding_box(rot_a)
+        rb_min_x, rb_min_y, _, _ = _part_bounding_box(rot_b)
+        
+        # Calculate effective rotations
+        eff_a_angle = global_angle
+        eff_b_angle = (b_angle + global_angle) % 360.0
+        
+        for tx, ty in tile_positions:
+            if placed_count >= total_qty or (stop_check and stop_check()):
+                break
+                
+            shift_x = tx - c_min_x
+            shift_y = ty - c_min_y
+            
+            final_a_outline = _translate_polygon(rot_a, shift_x, shift_y)
+            current_placements.append(PlacedPart(
+                part_id=primary_part_id,
+                instance_idx=placed_count,
+                sheet_id=stock.sheet_id,
+                position_mm=(ra_min_x + shift_x, ra_min_y + shift_y),
+                rotation_deg=eff_a_angle,
+                placed_outline=final_a_outline
+            ))
+            placed_count += 1
+            
+            if placed_count >= total_qty or (stop_check and stop_check()):
+                break
+                
+            final_b_outline = _translate_polygon(rot_b, shift_x, shift_y)
+            current_placements.append(PlacedPart(
+                part_id=primary_part_id,
+                instance_idx=placed_count,
+                sheet_id=stock.sheet_id,
+                position_mm=(rb_min_x + shift_x, rb_min_y + shift_y),
+                rotation_deg=eff_b_angle,
+                placed_outline=final_b_outline
+            ))
+            placed_count += 1
+            
+        if len(current_placements) > len(best_placements):
+            best_placements = current_placements
+            
+        if stop_check and stop_check():
+            break
+
+    placements = best_placements
+    placed_count = len(placements)
     unplaced: list[tuple[str, int]] = []
-    
-    placed_count = 0
-    
-    for tx, ty in tile_positions:
-        if placed_count >= total_qty or (stop_check and stop_check()):
-            break
-            
-        shift_x = tx - c_min_x
-        shift_y = ty - c_min_y
-        
-        pos_a_x = shift_x - a_min_x
-        pos_a_y = shift_y - a_min_y
-        
-        final_a_outline = _translate_polygon(outer, pos_a_x, pos_a_y)
-        
-        placements.append(PlacedPart(
-            part_id=primary_part_id,
-            instance_idx=placed_count,
-            sheet_id=stock.sheet_id,
-            position_mm=(pos_a_x, pos_a_y),
-            rotation_deg=0.0,
-            placed_outline=final_a_outline
-        ))
-        placed_count += 1
-        
-        if placed_count >= total_qty or (stop_check and stop_check()):
-            break
-            
-        final_b_outline = _translate_polygon(best_b_poly, shift_x, shift_y)
-        
-        b_min_x, b_min_y, _, _ = _part_bounding_box(_rotate_polygon(_translate_polygon(outer, -a_min_x, -a_min_y), b_angle))
-        
-        pos_b_x = -a_min_x - b_min_x + b_dx + shift_x
-        pos_b_y = -a_min_y - b_min_y + b_dy + shift_y
-        
-        placements.append(PlacedPart(
-            part_id=primary_part_id,
-            instance_idx=placed_count,
-            sheet_id=stock.sheet_id,
-            position_mm=(pos_b_x, pos_b_y),
-            rotation_deg=b_angle,
-            placed_outline=final_b_outline
-        ))
-        placed_count += 1
         
     # 3. Fallback for remainder
     remainder = total_qty - placed_count
@@ -304,7 +323,7 @@ def run_lattice_job(job: NestingJob, stop_check: Callable[[], bool] | None = Non
                                 part_id=p_id,
                                 instance_idx=inst_idx,
                                 sheet_id=stock.sheet_id,
-                                position_mm=(x - min_x, y - min_y),
+                                position_mm=(x, y),
                                 rotation_deg=angle,
                                 placed_outline=list(candidate)
                             ))

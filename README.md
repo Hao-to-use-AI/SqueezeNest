@@ -36,7 +36,7 @@ print(f"Placed {layout.yield_count} parts.")
 
 ### 2. High-Yield Panelization (Lattice Tiling)
 
-For homogeneous parts (e.g., mass-producing the exact same L-shape bracket), SqueezeNest provides a `Lattice Tiling` engine. It pairs parts into tightest interlocking clusters (e.g. Yin-Yang patterns) and mathematically tiles them to maximize density.
+For homogeneous parts (e.g., mass-producing the exact same L-shape bracket), SqueezeNest provides a `Lattice Tiling` engine. It pairs parts into tightest interlocking clusters (e.g. Yin-Yang patterns) and mathematically tiles them to maximize density. The algorithm automatically evaluates all allowed global rotations of the cluster to ensure the tiling grid optimally aligns with the stock sheet dimensions.
 
 ```python
 from squeezenest.api.models import NestingJob, NestingStrategy
@@ -94,7 +94,7 @@ print(f"Max Yield achieved: {best.yield_count} (scale_x={best.scale_x:.2f}, scal
 
 ### 4. Interactive PCB Panelization Web Demo
 
-SqueezeNest includes an interactive local web studio to test panelization with custom `.dxf` CAD files, live 2D vector preview (SVG), stop controls, timeout protection, and direct DXF panel export.
+SqueezeNest includes an interactive local web studio to test panelization with custom `.dxf` CAD files, live 2D vector preview (SVG), stop controls, timeout protection, and direct DXF panel export. The "Maximize Yield" mode scales dynamically based on the theoretical maximum part count matching your sheet size without artificial caps.
 
 ```bash
 # Launch the web demo server via CLI

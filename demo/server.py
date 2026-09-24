@@ -636,7 +636,7 @@ class PanelizerHandler(SimpleHTTPRequestHandler):
                     part_poly = SPolygon(outer)
                     part_area = max(1.0, part_poly.area)
                     # Safe upper bound to fill sheet
-                    est_count = min(60, max(4, int((panel_area / part_area) * 1.3)))
+                    est_count = max(4, int((panel_area / part_area) * 1.3))
                     for i in range(est_count):
                         inst_id = f"{item['part_id']}_{i + 1}"
                         parts_to_pack.append((inst_id, item["poly"]))
@@ -658,7 +658,7 @@ class PanelizerHandler(SimpleHTTPRequestHandler):
                     if fill_mode == "max_fill":
                         outer, holes = item["poly"]
                         part_area = max(1.0, SPolygon(outer).area)
-                        qty = min(60, max(4, int(((panel_w * panel_h) / part_area) * 1.3)))
+                        qty = max(4, int(((panel_w * panel_h) / part_area) * 1.3))
                     else:
                         qty = max(1, item["user_qty"] or target_quantity)
                     job_parts[p_id] = (item["poly"], PartMetadata(part_id=p_id, quantity=qty))

@@ -270,7 +270,7 @@ B=1 degrades to pure BLF greedy (fast). B=infinity is exhaustive (impractical fo
 
 For homogeneous jobs (many copies of a single part), SqueezeNest implements a `Lattice` strategy.
 1. Computes the optimal 2-part interlocking cluster (minimizing convex-hull area over all valid rotations).
-2. Computes 2D axis-aligned and brick-wall tiling patterns of the cluster across the stock sheet.
+2. Computes 2D axis-aligned and brick-wall tiling patterns of the cluster across the stock sheet. It evaluates all global allowed rotations (e.g., 0, 90, 180, 270) of the paired cluster to maximize the placement count.
 3. Falls back to BLF for any remaining quantities that don't fit in the lattice grid.
 This bypasses the BLF heuristic limitations and achieves near-optimal density.
 
